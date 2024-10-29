@@ -1,0 +1,451 @@
+---
+title: "Stats 141 Project"
+output: pdf_document
+date: "2024-02-21"
+---
+
+## Load the Dataset
+
+```{r}
+library(readxl)
+data <- read_excel("revised data to share with UCLA.xlsx", skip = 1)
+write.csv(data, file = "revised data to share with UCLA.csv")
+```
+
+### Data Cleaning
+```{r}
+library(dplyr)
+
+# Convert "NULL" strings to NA
+data[data == "NULL"] <- NA
+
+# Removing columns with more than 50% missing values
+threshold <- nrow(data) * 0.50
+df <- data %>% select_if(~sum(!is.na(.)) > threshold)
+
+# Filling missing values for numerical columns with median and categorical with mode
+df <- df %>%
+  mutate_if(is.numeric, ~ifelse(is.na(.), median(., na.rm = TRUE), .)) %>%
+  mutate_if(is.factor, ~ifelse(is.na(.), as.character(getmode(.)), .))
+
+write.csv(data, file = "(updated) revised data to share with UCLA.csv")
+```
+
+### EDA
+
+#### Summary
+
+```{r}
+# summary(df)
+```
+
+#### Plots of Relevant Variables
+
+```{r}
+library(ggplot2)
+
+# Plotting a histogram for a leadership metric
+ggplot(df, aes(x = PLeadership)) +
+  geom_histogram(binwidth = 1, fill = "lightblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Distribution of Leadership Scores", 
+       x = "Leadership Score", y = "Frequency") +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14)
+  )
+```
+
+```{r}
+library(ggplot2)
+
+# Plotting a barchat for a GenderCode
+ggplot(df, aes(x = GenderCode)) +
+  geom_bar(fill = "lightblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Distribution of GenderCode", x = "GenderCode", y = "Frequency") +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14)
+  )
+```
+
+```{r}
+# Plotting a barchart for a `Current Level in Organization (lower is better)` metric
+ggplot(df, aes(x = `Current Level in Organization (lower is better)`)) +
+  geom_bar(fill = "lightblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Distribution of Current Level", 
+       x = "`Current Level`", y = "Frequency") +
+    theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14)
+  )
+```
+```{r}
+# Plotting a barchart for `HighestDegree'
+ggplot(df, aes(x = `HighestDegree`)) +
+  geom_bar(fill = "lightblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Distribution of Highest Degree", 
+       x = "", y = "Frequency") +
+    theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+```{r}
+library(ggplot2)
+
+# Plotting a barchat for a Distribution of Function of Current Role metric
+ggplot(df, aes(x = `Function of Current Role`)) +
+  geom_bar(fill = "lightblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Distribution of Function of Current Role", 
+       x = "", y = "Frequency") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### HPI and Post EDA Data Cleaning
+
+```{r}
+library(dplyr)
+
+# Categorize the metrics based on HPI, HDS, MVPI
+
+HPI <- df %>%
+  dplyr::select(`ProjectIDText`:`Vulnerable - Scaled`, 
+         'PValidity', 'PAdjustment', 'PEmpathy', 'PNot Anxious', 'PNo Guilt', 'PCalmness', 
+         'PEven Tempered', 'PNo Complaints', 'PTrusting', 'PGood Attachment',
+         'PAmbition', 'PCompetitive', 'PSelf Confidence', 'PAccomplishment', 'PLeadership', 
+         'PIdentity', 'PNo Social Anxiety', 'PSociability', 'PLikes Parties',
+         'PLikes Crowds', 'PExperience Seeking', 'PExhibitionistic', 'PEntertaining', 
+         'PInterpersonal Sensitivity', 'PEasy To Live With', 'PSensitive', 'PCaring', 
+         'PLikes People', 'PNo Hostility', 'PPrudence', 'PMoralistic', 'PMastery', 'PVirtuous', 
+         'PNot Autonomous', 'PNot Spontaneous', 'PImpulse Control', 'PAvoids Trouble', 
+         'PInquisitive', 'PScience Ability', 'PCuriosity', 'PThrill Seeking', 
+         'PIntellectual Games', 'PGenerates Ideas', 'PCulture', 'PLearning Approach', 
+         'PEducation', 'PMath Ability', 'PGood Memory', 'PReading') %>%
+  filter(GenderCode != '2', !is.na(`Function of Current Role`)) %>%
+  mutate(`Function of Current Role` = as.factor(`Function of Current Role`),
+       PAdjustment = as.numeric(PAdjustment),
+       PAmbition = as.numeric(PAmbition),
+       PSociability = as.numeric(PSociability),
+       `PInterpersonal Sensitivity` = as.numeric(`PInterpersonal Sensitivity`),
+       PPrudence = as.numeric(PPrudence),
+       PInquisitive = as.numeric(PInquisitive),
+       `PLearning Approach` = as.numeric(`PLearning Approach`),
+       HighestDegree = ordered(HighestDegree, 
+                                 levels = c("Other", "Higher Education", "Associate",
+                                            "Bachelor", "Masters", "Doctorate")),
+       `Current Level in Organization (lower is better)` = 
+         ordered(`Current Level in Organization (lower is better)`, 
+                 levels = c("4", "3", "2", "1")))
+
+write.csv(HPI, file = "hpi_data.csv")
+```
+
+## Linear Regression Models:
+
+### Years at Current Employer
+
+```{r}
+lm_model <- lm(`YearsAtCurrentEmployer` ~ PValidity + PAdjustment + PAmbition + 
+                      PSociability + `PInterpersonal Sensitivity` + PPrudence + 
+                      PInquisitive + `PLearning Approach`, data = HPI)
+
+summary(lm_model)
+```
+
+The coefficients from the summary output implies that as these personality traits increase, the years at the current employer tend to decrease, except for PLearning Approach, which has a stronger negative relationship. The model suggests that personality traits such as PAdjustment, PAmbition, PInterpersonal Sensitivity, PInquisitive, and particularly PLearning Approach have statistically significant but relatively small impacts on the length of time an individual remains with their current employer, with all significant predictors indicating a tendency towards shorter tenure as these trait scores increase. However, the overall explanatory power of the model is low, as indicated by the R-squared values, suggesting that other unmodeled factors likely play a significant role in determining years at the current employer.
+
+## Logistic Regression Model:
+
+### Gender
+
+```{r}
+library(tidyverse)
+library(nnet)
+
+# Remove entries with '2' in the GenderCode
+HPI_filtered <- HPI %>%
+  filter(GenderCode != '2')
+
+# Fit the logistic regression model
+log_model <- glm(as.numeric(GenderCode) ~ PValidity + PAdjustment + PAmbition + PSociability +
+                      `PInterpersonal Sensitivity` + PPrudence + PInquisitive + `PLearning Approach`,
+                    data = HPI_filtered, family = binomial(link = "logit"))
+
+# Summary of the model to check the coefficients and significance
+summary(log_model)
+```
+
+The log odds of GenderCode being 1 (over 0) when all predictors are zero is approximately 1.326. This is significantly different from 0, suggesting a baseline tendency towards one of the gender codes when personality metrics are not considered. Positive coefficients (e.g., PAdjustment, PAmbition, PSociability, PInquisitive) suggest that higher scores in these traits increase the log odds of GenderCode being 1. Negative coefficients (PInterpersonal Sensitivity, PLearning Approach) indicate that higher scores decrease the log odds of GenderCode being 1. Most coefficients are significant, indicating strong evidence of their association with GenderCode, except PPrudence, which is not statistically significant at the conventional 0.05 level.
+
+## Multinomial Model
+
+### Function of Current Role
+
+```{r}
+library(nnet)
+library(tidyr)
+library(dplyr)
+library(car)
+
+# Multinomial Model
+model <- multinom(`Function of Current Role` ~ PAdjustment + PAmbition + 
+                    PSociability + `PInterpersonal Sensitivity` + PPrudence + 
+                    PInquisitive + `PLearning Approach`, data = HPI)
+
+# summary(model)
+
+coeff <- coef(model)
+std_errors <- summary(model)$standard.errors
+
+coefs_df <- as.data.frame(coeff) %>%
+  tibble::rownames_to_column("Variable") %>%
+  pivot_longer(-Variable, names_to = "Outcome", values_to = "Coefficient")
+
+std_errors_df <- as.data.frame(std_errors) %>%
+  tibble::rownames_to_column("Variable") %>%
+  pivot_longer(-Variable, names_to = "Outcome", values_to = "StdError")
+
+role_df <- left_join(coefs_df, std_errors_df, by = c("Variable", "Outcome"))
+
+# Coefficients and Standard Errors from Multinomial Model
+pivot_wider(role_df, names_from = Outcome, values_from = c("Coefficient", "StdError"), 
+            names_sep = "_")
+
+# ANOVA
+Anova(model, type = "II")
+```
+
+The multinomial logistic regression model was chosen because Function of Current Role is a categorical variable with more than two possible outcomes which do not have a natural order. Based on the Anova, PAmbition, PSociability, PPrudence, and PInquisitive are significant predictors of the Function of Current Role. These predictors can be interpreted as influencing the role function within the company. For example, individuals with higher scores in ambition and sociability may be likely to function in roles that are more leadership-oriented or require more interaction. The negative LR Chi-squared statistics for PAdjustment and PInterpersonal Sensitivity need further consideration. There could be errors in the model fitting process, or these variables might not be suitable predictors within the context of this model.
+
+### Country Name
+
+```{r}
+library(nnet)
+library(tidyr)
+library(dplyr)
+library(car)
+
+# Only consider countries with a large number of counts
+country_counts <- HPI %>%
+  group_by(CountryName) %>%
+  summarise(Count = n()) %>%
+  filter(Count > 50, !is.na(CountryName))
+
+HPI_filtered <- HPI %>%
+  semi_join(country_counts, by = "CountryName")
+
+# Ensure CountryName is a factor
+HPI_filtered$CountryName <- as.factor(HPI_filtered$CountryName)
+
+# Fit the multinomial logistic regression model
+model <- multinom(CountryName ~ PAdjustment + PAmbition + PSociability + `PInterpersonal Sensitivity` + 
+                    PPrudence + PInquisitive + `PLearning Approach`, data = HPI_filtered)
+
+# summary(model)
+
+coeff <- coef(model)
+std_errors <- summary(model)$standard.errors
+
+coefs_df <- as.data.frame(coeff) %>%
+  tibble::rownames_to_column("Variable") %>%
+  pivot_longer(-Variable, names_to = "Outcome", values_to = "Coefficient")
+
+std_errors_df <- as.data.frame(std_errors) %>%
+  tibble::rownames_to_column("Variable") %>%
+  pivot_longer(-Variable, names_to = "Outcome", values_to = "StdError")
+
+role_df <- left_join(coefs_df, std_errors_df, by = c("Variable", "Outcome"))
+
+# Coefficients and Standard Errors from Multinomial Model
+pivot_wider(role_df, names_from = Outcome, values_from = c("Coefficient", "StdError"), 
+            names_sep = "_")
+
+# ANOVA
+Anova(model, type = "II")
+```
+
+```{r}
+library(dplyr)
+
+# Calculate the median of each personality metric for each country
+country_medians <- HPI_filtered %>%
+  group_by(CountryName) %>%
+  summarise(
+    Med_PAdjustment = median(PAdjustment, na.rm = TRUE),
+    Med_PAmbition = median(PAmbition, na.rm = TRUE),
+    Med_PSociability = median(PSociability, na.rm = TRUE),
+    `Med_PInterpersonal Sensitivity` = median(`PInterpersonal Sensitivity`, na.rm = TRUE),
+    Med_PPrudence = median(PPrudence, na.rm = TRUE),
+    Med_PInquisitive = median(PInquisitive, na.rm = TRUE),
+    `Med_PLearning Approach` = median(`PLearning Approach`, na.rm = TRUE)
+  )
+
+# Calculate the average median across all personality metrics for each country
+country_medians$Average_Median <- rowMeans(country_medians[,2:8], na.rm = TRUE)
+
+# Order countries by their Average_Median to see which has the highest
+ordered_countries <- country_medians %>%
+  arrange(desc(Average_Median))
+
+# Display the ordered list of countries
+top_10_countries <- head(ordered_countries, n = 10)
+
+# Plotting the top 10 countries by Average_Median using a bar chart
+ggplot(top_10_countries, aes(x = reorder(CountryName, Average_Median), y = Average_Median)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme_minimal() +
+  labs(title = "Top Countries by Median of Personality Metrics",
+       x = "", y = "Average Median") +
+  coord_flip() + # Flip coordinates to make the chart horizontal
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14)
+  )
+```
+
+## Ordinal Regression
+
+### Higest Degree
+
+```{r}
+library(MASS)
+
+HPI$HighestDegree <- ordered(HPI$HighestDegree, 
+                             levels = c("Other", "Higher Education", "Associate",
+                                        "Bachelor", "Masters", "Doctorate"))
+
+# Fit the ordinal regression model
+ordinal_model <- polr(HighestDegree ~ PAdjustment + PAmbition + PSociability + 
+                        `PInterpersonal Sensitivity` + PPrudence + PInquisitive + 
+                        `PLearning Approach`, data = HPI, Hess = TRUE)
+
+summary(ordinal_model)
+
+# Extract coefficients for predictors and their standard errors
+coefficients <- (summary(ordinal_model)$coefficients)[, "Value"]
+std_errors <- (summary(ordinal_model)$coefficients)[, "Std. Error"]
+
+# Create a data frame for predictors only
+coef_df <- data.frame(
+  Predictor = names(coefficients),
+  Coefficient = coefficients,
+  StdError = std_errors
+)
+
+# ANOVA
+Anova(ordinal_model, type = "III")
+```
+
+Each coefficient represents the change in the log odds of being in a higher category of HighestDegree for a one-unit increase in the predictor variable, holding all other variables constant. High absolute t-values for intercepts indicate that they are significantly different from zero, thus differentiating between educational categories. Overall, this model suggests that PAdjustment, PSociability, PInquisitive, and PLearning Approach all have statistically significant effects on the highest degree attained, with PLearning Approach having the strongest effect.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Calculate the median of each personality metric for each degree
+degree_medians <- HPI %>%
+  filter(!is.na(HighestDegree)) %>%
+  group_by(HighestDegree) %>%
+  summarise(
+    Med_PInquisitive = median(PInquisitive, na.rm = TRUE),
+    `Med_PLearning Approach` = median(`PLearning Approach`, na.rm = TRUE)
+  )
+
+# Plot for PInquisitive
+ggplot(degree_medians, aes(x = reorder(HighestDegree, Med_PInquisitive), y = Med_PInquisitive)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme_minimal() +
+  labs(title = "Highest Degree by Median of PInquisitive",
+       x = "Highest Degree", y = "Median PInquisitive") +
+  coord_flip() +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14)
+  )
+
+# Plot for PLearning Approach
+ggplot(degree_medians, aes(x = reorder(HighestDegree, `Med_PLearning Approach`), y = `Med_PLearning Approach`)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme_minimal() +
+  labs(title = "Highest Degree by Median of PLearning Approach",
+       x = "Highest Degree", y = "Median PLearning Approach") +
+  coord_flip() +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14)
+  )
+
+```
+
+### Current Level in Organization (lower is better)
+
+```{r}
+library(MASS)
+
+HPI$`Current Level in Organization (lower is better)` <- 
+  ordered(HPI$`Current Level in Organization (lower is better)`, 
+          levels = c("4", "3", "2", "1"))
+
+# Fit the ordinal regression model
+ordinal_model <- polr(`Current Level in Organization (lower is better)` ~ PAdjustment + 
+                        PAmbition + PSociability + `PInterpersonal Sensitivity` + PPrudence +
+                        PInquisitive + `PLearning Approach`, data = HPI, Hess = TRUE)
+
+summary(ordinal_model)
+
+# ANOVA
+Anova(ordinal_model, type = "III")
+```
+
+The model analysis suggests that among the personality traits considered, PAmbition has a statistically significant positive impact on an individual's organizational level, implying that individuals with higher ambition levels are more likely to occupy higher positions within the organization. Other personality traits, while potentially influential, do not show statistically significant effects in this model.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Calculate the median of PAmbition metric for each level
+levels_medians <- HPI %>%
+  filter(!is.na(`Current Level in Organization (lower is better)`)) %>%
+  group_by(`Current Level in Organization (lower is better)`) %>%
+  summarise(
+    Med_PAmbition = median(PAmbition, na.rm = TRUE),
+  )
+
+# Calculate the average median across all personality metrics for each degree
+levels_medians$Average_Median <- rowMeans(levels_medians[,2], na.rm = TRUE)
+
+# Order degrees by their Average_Median to see which has the highest
+ordered_levels <- levels_medians %>%
+  arrange(desc(Average_Median))
+
+# Plotting the Highest Degree by Average_Median using a bar chart
+ggplot(ordered_levels, aes(x = reorder(`Current Level in Organization (lower is better)`, 
+                                       Average_Median), y = Average_Median)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme_minimal() +
+  labs(title = "Current Level by Median of Ambition",
+       x = "Current Level", y = "Average Median") +
+  theme(
+    plot.title = element_text(size = 20), # Adjusts the size of the plot title
+    axis.title = element_text(size = 16), # Adjusts the size of the axis titles (x and y)
+    axis.text = element_text(size = 14)   # Adjusts the size of the axis text (tick labels)
+  )
+  coord_flip()
+  
+```
+
+
