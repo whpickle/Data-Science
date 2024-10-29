@@ -1,0 +1,27 @@
+---
+title: "Datafest"
+author: "Wolfe Pickett -- 005488137"
+date: "`r format(Sys.Date(), '%D')`"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+# attorneys <- read_csv("attorneys.csv")
+# clients <- read_csv("clients.csv")
+# questionposts <- read_csv("questionposts.csv")
+# subcat <- read_csv("subcategories.csv")
+# questions <- read_csv("questions.csv")
+
+master <- read.csv('master.csv')
+
+
+summary(lm(master$UnansweredQuestions~factor(master$Category)))
+
+
+```
+
+```{r}
+master$UnansweredQuestions <- as.integer(is.na(master$TakenByAttorneyUno))
+plot(UnansweredQuestions~factor(Category), data = master)
+```
