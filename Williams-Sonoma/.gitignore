@@ -1,0 +1,16 @@
+# Ignore CSV files
+*.csv
+
+# Ignore Python cache and compiled files
+__pycache__/
+*.py[cod]
+
+# Ignore virtual environments (if applicable)
+williams_venv/
+
+# macOS system files
+.DS_Store
+
+# VS Code settings
+.vscode/
+
