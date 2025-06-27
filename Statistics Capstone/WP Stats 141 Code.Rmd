@@ -23,12 +23,18 @@ data[data == "NULL"] <- NA
 threshold <- nrow(data) * 0.50
 df <- data %>% select_if(~sum(!is.na(.)) > threshold)
 
+# Utility function for computing the mode of a vector
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
 # Filling missing values for numerical columns with median and categorical with mode
 df <- df %>%
   mutate_if(is.numeric, ~ifelse(is.na(.), median(., na.rm = TRUE), .)) %>%
   mutate_if(is.factor, ~ifelse(is.na(.), as.character(getmode(.)), .))
 
-write.csv(data, file = "(updated) revised data to share with UCLA.csv")
+write.csv(df, file = "(updated) revised data to share with UCLA.csv")
 ```
 
 ### EDA
@@ -317,7 +323,7 @@ ggplot(top_10_countries, aes(x = reorder(CountryName, Average_Median), y = Avera
 
 ## Ordinal Regression
 
-### Higest Degree
+### Highest Degree
 
 ```{r}
 library(MASS)
