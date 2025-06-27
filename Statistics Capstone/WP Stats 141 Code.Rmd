@@ -60,7 +60,7 @@ ggplot(df, aes(x = PLeadership)) +
 ```{r}
 library(ggplot2)
 
-# Plotting a barchat for a GenderCode
+# Plotting a bar chart for a GenderCode
 ggplot(df, aes(x = GenderCode)) +
   geom_bar(fill = "lightblue", color = "black") +
   theme_minimal() +
@@ -103,7 +103,7 @@ ggplot(df, aes(x = `HighestDegree`)) +
 ```{r}
 library(ggplot2)
 
-# Plotting a barchat for a Distribution of Function of Current Role metric
+# Plotting a bar chart for a Distribution of Function of Current Role metric
 ggplot(df, aes(x = `Function of Current Role`)) +
   geom_bar(fill = "lightblue", color = "black") +
   theme_minimal() +
